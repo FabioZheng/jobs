@@ -2,16 +2,23 @@
 
 A modular Python project that discovers job URLs, extracts structured fields using AI, filters/ranks positions, and exports a clean Excel spreadsheet.
 
+## What this project does
+
+1. **Discover URLs** with Scrapy from search engine results (LinkedIn, Indeed, Glassdoor, and career-site patterns).
+2. **Extract structured fields** from each job page with:
+   - **Primary:** ScrapeGraphAI (`SCRAPEGRAPH_API_KEY`)
+   - **Fallback:** OpenAI (`OPENAI_API_KEY`)
+3. **Clean & normalize** records (salary/location/date, dedupe by URL).
+4. **Enrich & rank** jobs (seniority, skill tags, relevance score).
+5. **Filter** to relevant ML/AI/Data opportunities and export Excel + CSV.
+
 ## Features
 
-- Hybrid pipeline:
-  - **Traditional scraping** with Scrapy for job URL discovery.
-  - **AI extraction** with ScrapeGraphAI, with **OpenAI fallback**.
-- Data cleaning and normalization (salary/location/date, dedupe by URL).
-- AI/heuristic enrichment (seniority, skill tags, relevance score).
-- AI/keyword filtering for relevant entry-level ML/AI/Data roles in Europe or remote.
-- Excel + CSV export and optional raw JSON snapshot.
-- CLI support, logging, progress bars, daily output mode.
+- Hybrid pipeline: traditional crawling + AI extraction.
+- CLI interface (`--query`, `--max-urls`, `--profile`, `--daily`, `--verbose`).
+- Configurable `.env` settings for filters and crawler behavior.
+- Progress bar and structured logs.
+- Raw JSON snapshot for audit/debug (`jobs_raw.json`).
 
 ## Project layout
 
@@ -37,55 +44,124 @@ job_scraper/
 └── data/
 ```
 
-## Setup
+---
 
-1. Create environment and install dependencies:
+## How to run and use this
+
+### 1) Prerequisites
+
+- Python **3.10+**
+- macOS/Linux shell (Windows works with PowerShell equivalents)
+
+### 2) Install
+
+From repository root (`/workspace/jobs`):
 
 ```bash
+cd job_scraper
 python -m venv .venv
 source .venv/bin/activate
+pip install --upgrade pip
 pip install -r requirements.txt
+```
+
+(Optional, only needed if you plan to use Playwright rendering helper):
+
+```bash
 python -m playwright install chromium
 ```
 
-2. Configure secrets:
+### 3) Configure API keys
 
 ```bash
 cp .env.example .env
-# edit .env with API keys
 ```
 
-> You can run extraction with ScrapeGraphAI key, OpenAI key, or both (ScrapeGraph first, OpenAI fallback).
+Then edit `.env` and set at least one provider:
 
-## Usage
+- `SCRAPEGRAPH_API_KEY=...` (preferred primary extractor)
+- `OPENAI_API_KEY=...` (fallback extractor + enrichment)
 
-From the `job_scraper/` directory:
+You can set both. If ScrapeGraph fails, fallback will use OpenAI.
+
+### 4) Run the pipeline
+
+Basic run:
 
 ```bash
 python main.py --query "machine learning engineer remote"
 ```
 
-Useful flags:
+With additional options:
 
-- `--max-urls 80`
-- `--profile "Junior data scientist with Python, NLP, LLM experience"`
-- `--daily` (creates date-stamped outputs)
-- `--verbose`
+```bash
+python main.py \
+  --query "junior ai engineer" \
+  --max-urls 80 \
+  --profile "Junior ML engineer with Python, NLP, LLM, PyTorch" \
+  --verbose
+```
 
-## Output
+Daily date-stamped outputs:
 
-The pipeline writes files under `data/`:
+```bash
+python main.py --query "data scientist remote europe" --daily
+```
 
-- `jobs.xlsx`
-- `jobs.csv`
-- `jobs_raw.json`
+### 5) Find outputs
 
-Column format in spreadsheet:
+Generated files are saved to:
+
+- `job_scraper/data/jobs.xlsx`
+- `job_scraper/data/jobs.csv`
+- `job_scraper/data/jobs_raw.json`
+
+When using `--daily`, names include date suffixes (for example `jobs_20260429.xlsx`).
+
+---
+
+## CLI reference
+
+```bash
+python main.py --help
+```
+
+Arguments:
+
+- `--query` (required): base search query, e.g. `"ml engineer remote"`
+- `--max-urls` (default: `60`): limit of discovered URLs to process
+- `--profile` (default included): profile text used for relevance scoring
+- `--daily`: save date-stamped output files
+- `--verbose`: debug-level logging
+
+---
+
+## Spreadsheet columns
+
+Final Excel/CSV uses:
 
 | Title | Company | Location | Salary | Skills | Seniority | Remote | Score | URL |
 
+---
+
+## Troubleshooting
+
+- **No jobs found**
+  - Try broader query terms (e.g., `"machine learning remote"`).
+  - Increase `--max-urls`.
+  - Search engines may throttle/limit scraping.
+
+- **Extraction failed rows**
+  - Check API keys in `.env`.
+  - Ensure at least one provider is set.
+  - Some job pages block bots or require authentication.
+
+- **Excel not generated**
+  - Ensure `openpyxl` is installed (`pip install -r requirements.txt`).
+
+---
+
 ## Notes
 
-- Some job sites aggressively block bots; you may need proxies, headers, or authenticated sessions for high coverage.
-- Respect website terms of service and robots policies for your usage context.
-- For JS-heavy pages, you can call Playwright helper in a custom extraction flow.
+- Respect website terms of service and legal policies in your jurisdiction.
+- Some job boards aggressively block automated traffic; consider proxy/session hardening for production usage.
